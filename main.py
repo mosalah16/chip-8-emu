@@ -72,7 +72,7 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
             elif n == 4:
                 if reg.variable[x] + reg.variable[y] > 255:
                     reg.variable[0xf] = 1
-                reg.variable[x] = reg.variable(x) + reg.variable[y]
+                reg.variable[x] = reg.variable[x] + reg.variable[y]
             elif n == 5:
                 if reg.variable[x] < reg.variable[y]:
                     reg.variable[0xf] = 0
@@ -81,29 +81,12 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
                 if reg.variable[x] > reg.variable[y]:
                     reg.variable[0xf] = 0
                 reg.variable[x] = reg.variable[y] - reg.variable[x]
-            elif n == 6 or n == 0xe:
-                reg.variable[x] = reg.variable[y] # CONFIGURABLE! skip this lign
-                if n == 6:
-                    if reg.variable[x] & 0x1 == 1:
-                        shifted_out=1
-                    elif reg.variable[x] & 0x1 == 0:
-                        shifted_out=0
-                    reg.variable[x] = reg.variable[x] >> 1
-                    if shifted_out == 1:
-                        reg.variable[0xf] = 1
-                    elif shifted_out == 0:
-                        reg.variable[0xf] = 0
-                    
-                elif n == 0xe:
-                    if reg.variable[x] & 0x80 == 1:
-                        shifted_out=1
-                    elif reg.variable[x] & 0x80 == 0:
-                        shifted_out=0
-                    reg.variable[x] = reg.variable[x] << 1
-                    if shifted_out == 1:
-                        reg.variable[0xf] = 1
-                    elif shifted_out == 0:
-                        reg.variable[0xf] = 0
+            elif n == 6:
+                reg.variable[0xf] = reg.variable[x] & 0x1
+                reg.variable[x] >>= 1
+            elif n == 0xe:
+                reg.variable[0xf] = (reg.variable[x] & 0x80) >> 7
+                reg.variable[x] = (reg.variable[x] << 1) & 0xff
 
         case 9:
             if reg.variable[x] != reg.variable[y]:
@@ -113,7 +96,7 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
         case 0xb:
             reg.pc = nnn + reg.variable[0] # CONFIGURABLE! nnn -> xnn
         case 0xc:
-            reg.variable[x] = randint(0, nn) & nn
+            reg.variable[x] = randint(0, 255) & nn
         case 0xd:
             coor_x = reg.variable[x] & 63 # modulo 64 ( screen 64 pixels wide )
             coor_y = reg.variable[y] & 31 # modulo 32 ( screen 32 pixels tall )
@@ -166,7 +149,7 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
                 last_nibble = reg.variable[x] & 0xf
                 reg.I = 0x050 + (last_nibble * 5) # font for character
             elif nn == 0x33:
-                xdecimal = int(reg.variable[x], 16)
+                xdecimal = reg.variable[x]
                 ram[reg.I] = xdecimal // 100
                 ram[reg.I + 1] = ( xdecimal // 10) % 10
                 ram[reg.I + 2] = xdecimal % 10
@@ -175,9 +158,9 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
                     ram[reg.I + i] = reg.variable[i]
                 # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
 
-            elif nn == 0x65:  # FX65: Load registers V0 to VX from memory
+            elif nn == 0x65:  
                 for i in range(x + 1):
-                    reg.variable[i] = ram[reg.I + i] # Load values into registers
+                    reg.variable[i] = ram[reg.I + i]
                 # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
                     
 
