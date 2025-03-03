@@ -1,5 +1,0 @@
-# CHIP-8 Emulator
-
-A simple CHIP-8 emulator to learn low-level computing. Found myself not understanding half what I'm doing on the NES emulator, so I’m starting smaller project
-
-Using [this guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/).

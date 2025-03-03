@@ -1,4 +1,4 @@
-class ram:
+class memory:
     def __init__(self) -> None:
         font = [
             0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
@@ -23,10 +23,6 @@ class ram:
         # - first 79 bytes are empty
         # - then font data
         # - then empty
+
         self.memory = [0x00] * 0x4f + font + [0x00] * ( 4096 - (0x4f + len(font)))
-    
-    def read(self, address: int ) -> int:
-        return self.memory[address]
-    
-    def write(self, address: int, value: int) -> None:
-        self.memory[address] = value
+        
