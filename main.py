@@ -1,6 +1,7 @@
 import time
 from registers import registers
 from memory import memory
+from random import randint
 
 INTERVAL = 1 / 700 
 
@@ -34,14 +35,93 @@ def decode(instruction: int) -> int:
 def execute(first,x,y,n,nn,nnn: int, reg):
     match first:
         case 0:
-            if x==0x0 and y==0xe and n==0x0: pass #clear screen
-            if x==0x0 and y==0xe and n==0xe: 
+            if nn == 0xe0: 
+                pass #clear screen
+            if nn == 0xee: 
                 reg.pc=reg.pop()
         case 1:
             reg.pc=nnn
         case 2:
             reg.push(reg.pc)
             reg.pc=nnn
+        case 3:
+            if nn == reg.variable(x):
+                reg.pc += 2
+        case 4:
+            if nn != reg.variable(x):
+                reg.pc += 2 
+        case 5:
+            if reg.variable(x) == reg.variable(y):
+                reg.pc += 2
+        case 6:
+            reg.variable(x)=nn
+        case 7:
+            reg.variable(x) += nn
+        case 8:
+            if n == 0:
+                reg.variable(x) = reg.variable(y)
+            elif n == 1:
+                reg.variable(x) = reg.variable(x) | reg.variable(y)
+            elif n == 2:
+                reg.variable(x) = reg.variable(x) & reg.variable(y)
+            elif n == 3:
+                reg.variable(x) = reg.variable(x) ^ reg.variable(y)
+            elif n == 4:
+                if reg.variable(x) + reg.variable(y) > 255:
+                    reg.variable(0xf) = 1
+                reg.variable(x) = reg.variable(x) + reg.variable(y)
+            elif n == 5:
+                if reg.variable(x) < reg.variable(y):
+                    reg.variable(0xf) = 0
+                reg.variable(x) = reg.variable(x) - reg.variable(y)
+            elif n == 7:
+                if reg.variable(x) > reg.variable(y):
+                    reg.variable(0xf) = 0
+                reg.variable(x) = reg.variable(y) - reg.variable(x)
+            elif n == 6 or n == 0xe:
+                reg.variable(x) = reg.variable(y) # CONFIGURABLE! skip lign
+                if n == 6:
+                    if reg.variable(x) & 0x1 == 1:
+                        shifted_out=1
+                    elif reg.variable(x) & 0x1 == 0:
+                        shifted_out=0
+                    reg.variable(x) = reg.variable(x) >> 1
+                    if shifted_out == 1:
+                        reg.variable(0xf) = 1
+                    elif shifted_out == 0:
+                        reg.variable(0xf) = 0
+                    
+                elif n == 0xe:
+                    if reg.variable(x) & 0x80 == 1:
+                        shifted_out=1
+                    elif reg.variable(x) & 0x80 == 0:
+                        shifted_out=0
+                    reg.variable(x) = reg.variable(x) << 1
+                    if shifted_out == 1:
+                        reg.variable(0xf) = 1
+                    elif shifted_out == 0:
+                        reg.variable(0xf) = 0
+
+        case 9:
+            if reg.variable(x) != reg.variable(y):
+                reg.pc += 2
+        case 0xa:
+            reg.I = nnn
+        case 0xb:
+            reg.pc = nnn + reg.variable(0) # CONFIGURABLE! nnn -> xnn
+        case 0xc:
+            reg.variable(x) = randint(0, nn) & nn
+        case 0xd:
+            coorx = reg.variable(x) & 63 # modulo 64 ( screen 64 pixels wide )
+            coory = reg.variable(y) & 31 # modulo 32 ( screen 32 pixels tall )
+            reg.variable(0xf) = 0
+            for i in range(n) :
+                
+
+            
+        
+
+
         
 
 
@@ -65,7 +145,7 @@ def main() -> None:
         if elapsed_time < INTERVAL:
             sleep = INTERVAL - elapsed_time
             if sleep > 0:
-                time.sleep(sleep * 0.95) 
+                time.sleep(sleep * 0.9) 
 
         while elapsed_time < INTERVAL:
             current_time = time.perf_counter()
