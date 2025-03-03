@@ -14,7 +14,8 @@ def main() -> None:
         current_time = time.perf_counter()
         elapsed_time = current_time - last_time
         while elapsed_time < INTERVAL:
-            pass
+            current_time = time.perf_counter()
+            elapsed_time = current_time - last_time
 
 if __name__ == "__main__":
     main()
