@@ -2,6 +2,7 @@ import time
 from registers import registers
 from memory import memory
 from random import randint
+import pygame
 
 INTERVAL = 1 / 700 
 
@@ -120,19 +121,17 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen):
             for row in range(n) :
                 sprite_data = ram[reg.I + row]
                 for col in range(8):
-                    screen_col = coor_x + col
-                    screen_row = coor_y + row
                     if (sprite_data & (0x80 >> col)) != 0:
                         screen_col = coor_x + col
                         screen_row = coor_y + row
                     
-                    if screen_col >= 64 or screen_row >= 32: continue # out of screen
+                        if screen_col >= 64 or screen_row >= 32: continue # out of screen
 
-                    if screen[screen_row][screen_col] == 1:  # if pixel is on
-                        reg.variable[0xf] = 1  # flag
+                        if screen[screen_row][screen_col] == 1:  # if pixel is on
+                            reg.variable[0xf] = 1  # flag
 
-                    
-                    screen[screen_row][screen_col] ^= 1 # toggle the screen pixel
+                        
+                        screen[screen_row][screen_col] ^= 1 # toggle the screen pixel
 
 
 
@@ -150,16 +149,26 @@ def load(ch8, ram):
     for i, byte in enumerate(rom_data):
         ram[0x200 + i] = byte
 
-def render_screen(screen):
-    for row in screen:
-        # X for 1, . for 0
-        rendered_row = "".join("X" if pixel else "." for pixel in row)
-        print(rendered_row)
+
+def render_screen(screen, window, SCALE):
+    window.fill((0, 0, 0))
+    for row in range(32):
+        for col in range(64):
+            if screen[row][col] == 1:
+                pygame.draw.rect(window, (255,255,255),(col * SCALE, row * SCALE, 1 * SCALE, 1 * SCALE) )
+    pygame.display.flip()
+
 
 def main() -> None:
     ram = memory()
     reg = registers()
     screen = [[0] * 64 for _ in range(32)] # init screen array 64x32
+
+    pygame.init()
+    SCALE = 20
+    window = pygame.display.set_mode((64*SCALE,32*SCALE))
+    pygame.display.set_caption("CHIP-8 Emulator")
+
 
     ch8 = "IBM Logo.ch8"
     load(ch8, ram)
@@ -170,9 +179,11 @@ def main() -> None:
         last_time = time.perf_counter()
         cpu_cycle(ram, reg, screen)
 
-        render_screen(screen)
-        print("\n")
-        
+        #render_screen(screen)
+        #print("\n")~
+
+        render_screen(screen, window, SCALE)
+
         current_time = time.perf_counter()
         elapsed_time = current_time - last_time
         
