@@ -25,4 +25,9 @@ class memory:
         # - then empty
 
         self.memory = [0x00] * 0x4f + font + [0x00] * ( 4096 - (0x4f + len(font)))
-        
+
+    def __getitem__(self, address):
+        return self.memory[address]  
+
+    def __setitem__(self, address, value):
+        self.memory[address] = value
