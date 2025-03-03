@@ -15,4 +15,4 @@ class registers:
     
     def pop(self) -> int:
         self.sp -= 1
-        return self.stack[self.sp+1]
+        return self.stack[self.sp]

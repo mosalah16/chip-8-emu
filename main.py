@@ -33,7 +33,7 @@ def decode(instruction: int) -> int:
 
     return first,x,y,n,nn,nnn
 
-def execute(first,x,y,n,nn,nnn: int, reg, ram, screen):
+def execute(first,x,y,n,nn,nnn: int, reg, ram, screen, keys):
     match first:
         case 0:
             if nn == 0xe0: # clear screen
@@ -132,15 +132,62 @@ def execute(first,x,y,n,nn,nnn: int, reg, ram, screen):
 
                         
                         screen[screen_row][screen_col] ^= 1 # toggle the screen pixel
+        case 0xe:
+            if nn == 0xa1:
+                if keys[reg.variable[x]] == 0:
+                    reg.pc += 2
+            elif nn == 0x9e:
+                if keys[reg.variable[x]] == 1:
+                    reg.pc += 2
+        case 0xf:
+            if nn == 0x07:
+                reg.variable[x] = reg.delay
+            elif nn == 0x15:
+                reg.delay = reg.variable[x]
+            elif nn == 0x18:
+                reg.sound = reg.variable[x]
+            elif nn == 0x1e:
+                reg.I += reg.variable[x]
+                if reg.I > 0xFFF:            # CONFIGURABLE!
+                    reg.variable[0xF] = 1    # chip-8 for amiga uses this
+                else:                        # spacefight 2091 relies on this
+                    reg.variable[0xF] = 0    #
+                reg.I &= 0xFFF
+            elif nn == 0x0a:
+                Check_input = False
+                for i in range(16):
+                    if keys[i] == 1:
+                        Check_input = True
+                        reg.variable[x] = keys[i]
+                        break
+                if Check_input == False:
+                    reg.pc -= 2 
+            elif nn == 0x29:
+                last_nibble = reg.variable[x] & 0xf
+                reg.I = 0x050 + (last_nibble * 5) # font for character
+            elif nn == 0x33:
+                xdecimal = int(reg.variable[x], 16)
+                ram[reg.I] = xdecimal // 100
+                ram[reg.I + 1] = ( xdecimal // 10) % 10
+                ram[reg.I + 2] = xdecimal % 10
+            elif n == 0x55:
+                for i in range(x + 1):
+                    ram[reg.I + i] = reg.variable[i]
+                # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
+
+            elif nn == 0x65:  # FX65: Load registers V0 to VX from memory
+                for i in range(x + 1):
+                    reg.variable[i] = ram[reg.I + i] # Load values into registers
+                # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
+                    
 
 
 
 
-
-def cpu_cycle(ram, reg, screen) -> None:
+def cpu_cycle(ram, reg, screen, keys) -> None:
     intruction = fetch(ram, reg)
     first,x,y,n,nn,nnn = decode(intruction)
-    execute(first, x, y, n, nn, nnn, reg, ram, screen)
+    execute(first, x, y, n, nn, nnn, reg, ram, screen, keys)
 
 def load(ch8, ram):
     with open(ch8, "rb") as file: # open in binary
@@ -158,6 +205,28 @@ def render_screen(screen, window, SCALE):
                 pygame.draw.rect(window, (255,255,255),(col * SCALE, row * SCALE, 1 * SCALE, 1 * SCALE) )
     pygame.display.flip()
 
+KEYS = {
+    pygame.K_1: 0x1, pygame.K_2: 0x2, pygame.K_3: 0x3, pygame.K_4: 0xC,
+    pygame.K_q: 0x4, pygame.K_w: 0x5, pygame.K_e: 0x6, pygame.K_r: 0xD,
+    pygame.K_a: 0x7, pygame.K_s: 0x8, pygame.K_d: 0x9, pygame.K_f: 0xE,
+    pygame.K_z: 0xA, pygame.K_x: 0x0, pygame.K_c: 0xB, pygame.K_v: 0xF
+}
+
+def key():
+    keys = [0] * 16  # CHIP-8 has 16 keys
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key in KEYS:
+                keys[KEYS[event.key]] = 1
+        elif event.type == pygame.KEYUP:
+            if event.key in KEYS:
+                keys[KEYS[event.key]] = 0
+    return keys
+
+
 
 def main() -> None:
     ram = memory()
@@ -170,17 +239,17 @@ def main() -> None:
     pygame.display.set_caption("CHIP-8 Emulator")
 
 
-    ch8 = "IBM Logo.ch8"
+    ch8 = "tetris.ch8"
     load(ch8, ram)
 
     reg.pc = 0x200
 
     while True:
         last_time = time.perf_counter()
-        cpu_cycle(ram, reg, screen)
 
-        #render_screen(screen)
-        #print("\n")~
+        keys = key()
+
+        cpu_cycle(ram, reg, screen, keys)
 
         render_screen(screen, window, SCALE)
 
@@ -191,7 +260,7 @@ def main() -> None:
         if elapsed_time < INTERVAL:
             sleep = INTERVAL - elapsed_time
             if sleep > 0:
-                time.sleep(sleep * 0.9) 
+                time.sleep(sleep * 0.97) 
 
         while elapsed_time < INTERVAL:
             current_time = time.perf_counter()
