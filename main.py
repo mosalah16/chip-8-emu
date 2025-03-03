@@ -13,6 +13,13 @@ def main() -> None:
         cpu_cycle()
         current_time = time.perf_counter()
         elapsed_time = current_time - last_time
+        
+        # reduce cpu stress while still having the accuracy of perf_counter
+        if elapsed_time < INTERVAL:
+            sleep = INTERVAL - elapsed_time - 0.005
+            if sleep > 0:
+                time.sleep(sleep) 
+
         while elapsed_time < INTERVAL:
             current_time = time.perf_counter()
             elapsed_time = current_time - last_time
