@@ -1,4 +1,4 @@
-class memory:
+class Memory:
     def __init__(self) -> None:
         font = [
             0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0

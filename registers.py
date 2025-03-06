@@ -10,9 +10,11 @@ class registers:
     
 
     def push(self, value: int) -> None:
-        self.stack[self.sp] = value
         self.sp += 1
+        self.stack[self.sp] = value
+        
     
     def pop(self) -> int:
+        valeur = self.stack[self.sp]
         self.sp -= 1
-        return self.stack[self.sp]
+        return valeur
