@@ -226,7 +226,6 @@ def key():
         elif event.type == pygame.KEYDOWN:
             if event.key in KEYS:
                 keys[KEYS[event.key]] = 1
-                print(f"Key pressed: {hex(KEYS[event.key])}")
         elif event.type == pygame.KEYUP:
             if event.key in KEYS:
                 keys[KEYS[event.key]] = 0
@@ -239,6 +238,9 @@ def main() -> None:
     screen = [[0] * 64 for _ in range(32)]  # init screen array 64x32
 
     pygame.init()
+    pygame.mixer.init()
+    beep = pygame.mixer.Sound("beep.wav")
+
     SCALE = 20
     window = pygame.display.set_mode((64 * SCALE, 32 * SCALE))
     pygame.display.set_caption("CHIP8 Emulator")
@@ -268,6 +270,8 @@ def main() -> None:
                 reg.delay -= 1
             if reg.sound > 0:
                 reg.sound -= 1
+                if not pygame.mixer.get_busy():
+                    beep.play()
             last_timer_time = current_time
 
         current_time = time.perf_counter()
