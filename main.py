@@ -61,7 +61,12 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
         case 6:
             reg.variable[x] = nn & 0xFF 
         case 7:
-            reg.variable[x] = (reg.variable[x] + nn) & 0xFF 
+            result = reg.variable[x] + nn
+            if result > 255:
+                reg.variable[0xF] = 1
+            else:
+                reg.variable[0xF] = 0
+            reg.variable[x] = result & 0xFF
         case 8:
             if n == 0:
                 reg.variable[x] = reg.variable[y] & 0xFF 
@@ -72,9 +77,12 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             elif n == 3:
                 reg.variable[x] = (reg.variable[x] ^ reg.variable[y]) & 0xFF 
             elif n == 4:
-                if (reg.variable[x] + reg.variable[y]) & 0xFF > 255:
+                result = reg.variable[x] + reg.variable[y]
+                if result > 255:
                     reg.variable[0xF] = 1
-                reg.variable[x] = (reg.variable[x] + reg.variable[y]) & 0xFF
+                else:
+                    reg.variable[0xF] = 0
+                reg.variable[x] = result & 0xFF
             elif n == 5:
                 if reg.variable[x] < reg.variable[y]:
                     reg.variable[0xF] = 0
@@ -94,11 +102,11 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             if reg.variable[x] != reg.variable[y]:
                 reg.pc.value += 2
         case 0xA:
-            reg.I = nnn
+            reg.I.value = nnn
         case 0xB:
             reg.pc.value = nnn + reg.variable[0]  # CONFIGURABLE! nnn -> xnn
-            # l=(x << 8) | nn
-            # reg.pc.value = nnn + reg.variable[0]
+            # la=(x << 8) | nn
+            # reg.pc.value = la + reg.variable[0]
 
         case 0xC:
             reg.variable[x] = randint(0, 255) & nn
@@ -107,7 +115,7 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             coor_y = reg.variable[y] & 31  # modulo 32 ( screen 32 pixels tall )
             reg.variable[0xF] = 0  # reset flag
             for row in range(n):
-                sprite_data = ram[reg.I + row]
+                sprite_data = ram[reg.I.value + row]
                 for col in range(8):
                     if (sprite_data & (0x80 >> col)) != 0:
                         screen_col = coor_x + col
@@ -135,12 +143,11 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             elif nn == 0x18:
                 reg.sound.value = reg.variable[x]
             elif nn == 0x1E:
-                reg.I += reg.variable[x]
-                if reg.I > 0xFFF:  # CONFIGURABLE!
+                reg.I.value += reg.variable[x]
+                if reg.I.value > 0xFFF:  # CONFIGURABLE!
                     reg.variable[0xF] = 1  # chip-8 for amiga uses this
                 else:  # spacefight 2091 relies on this
                     reg.variable[0xF] = 0  #
-                reg.I &= 0xFFF
             elif nn == 0x0A:
                 key_pressed = False
                 for i in range(16):
@@ -152,28 +159,28 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
                     reg.pc.value -= 2
             elif nn == 0x29:
                 last_nibble = reg.variable[x] & 0xF
-                reg.I = 0x050 + (last_nibble * 5)  # font for character
+                reg.I.value = 0x050 + (last_nibble * 5)  # font for character
             elif nn == 0x33:
                 xdecimal = reg.variable[x]
-                ram[reg.I] = xdecimal // 100
-                ram[reg.I + 1] = (xdecimal // 10) % 10
-                ram[reg.I + 2] = xdecimal % 10
+                ram[reg.I.value] = xdecimal // 100
+                ram[reg.I.value + 1] = (xdecimal // 10) % 10
+                ram[reg.I.value + 2] = xdecimal % 10
             elif n == 0x55:
                 for i in range(x + 1):
-                    ram[reg.I + i] = reg.variable[i]
-                # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
+                    ram[reg.I.value + i] = reg.variable[i]
+                # reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chop
 
             elif nn == 0x65:
                 for i in range(x + 1):
-                    reg.variable[i] = ram[reg.I + i]
-                # reg.I += x + 1  # CONFIGURABLE! uncomment for original chop
+                    reg.variable[i] = ram[reg.I.value + i]
+                # reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chop
 
 
 def cpu_cycle(ram, reg, screen, keys) -> None:
     instruction = fetch(ram, reg)
     first, x, y, n, nn, nnn = decode(instruction)
     execute(first, x, y, n, nn, nnn, reg, ram, screen, keys)
-    print(f"instruction ={hex(instruction)}, I ={reg.I}, sp = {reg.sp.value}, pc = {reg.pc.value} vx = {reg.variable}")
+    print(f"instruction ={hex(instruction)}, I ={reg.I.value}, sp = {reg.sp.value}, pc = {reg.pc.value}")
 
 
 def load(ch8, ram):
@@ -184,7 +191,12 @@ def load(ch8, ram):
         ram[0x200 + i] = byte
 
 
-def render_screen(screen, window, SCALE):
+def render_screen(screen, window, SCALE, prev_screen):
+
+    if screen == prev_screen:
+        return  # skip if screen didnt change
+    prev_screen[:] = [row[:] for row in screen]
+    
     window.fill((0, 0, 0))
     for row in range(32):
         for col in range(64):
@@ -236,16 +248,17 @@ def main() -> None:
     ram = Memory()
     reg = Registers()
     screen = [[0] * 64 for _ in range(32)]  # init screen array 64x32
+    prev_screen = [[0] * 64 for _ in range(32)]
 
     pygame.init()
-   # pygame.mixer.init()
-    #beep = pygame.mixer.Sound("beep.wav")
+    pygame.mixer.init()
+    beep = pygame.mixer.Sound("beep.wav")
 
     SCALE = 20
     window = pygame.display.set_mode((64 * SCALE, 32 * SCALE))
     pygame.display.set_caption("CHIP8 Emulator")
 
-    ch8 = "Pong.ch8"
+    ch8 = "Hidden.ch8"
     load(ch8, ram)
 
     reg.sp.value = 0
@@ -261,7 +274,7 @@ def main() -> None:
 
         cpu_cycle(ram, reg, screen, keys)
 
-        render_screen(screen, window, SCALE)
+        render_screen(screen, window, SCALE, prev_screen)
 
         current_time = time.perf_counter()
         
@@ -270,8 +283,8 @@ def main() -> None:
                 reg.delay.value -= 1
             if reg.sound.value > 0:
                 reg.sound.value -= 1
-                #if not pygame.mixer.get_busy():
-                 #   beep.play()
+                if not pygame.mixer.get_busy():
+                    beep.play()
             last_timer_time = current_time
 
         current_time = time.perf_counter()
@@ -281,7 +294,7 @@ def main() -> None:
         if elapsed_time < INTERVAL:
             sleep = INTERVAL - elapsed_time
             if sleep > 0:
-                time.sleep(sleep * 0.97)
+                time.sleep(sleep * 0.98)
 
         while elapsed_time < INTERVAL:
             current_time = time.perf_counter()
