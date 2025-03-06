@@ -1,5 +1,5 @@
 import time
-from registers import registers
+from registers import Registers
 from memory import Memory
 from random import randint
 import pygame
@@ -10,8 +10,8 @@ current_time = 0
 
 
 def fetch(ram: int, reg: int) -> int:
-    instruction = (ram[reg.pc] << 8) | ram[reg.pc + 1]
-    reg.pc += 2
+    instruction = (ram[reg.pc.value] << 8) | ram[reg.pc.value + 1]
+    reg.pc.value += 2
     return instruction
 
 
@@ -43,21 +43,21 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
                     for col in range(64):
                         screen[row][col] = 0
             elif nn == 0xEE:
-                reg.pc = reg.pop()
+                reg.pc.value = reg.pop()
         case 1:
-            reg.pc = nnn
+            reg.pc.value = nnn
         case 2:
-            reg.push(reg.pc)
-            reg.pc = nnn
+            reg.push(reg.pc.value)
+            reg.pc.value = nnn
         case 3:
             if nn == reg.variable[x]:
-                reg.pc += 2
+                reg.pc.value += 2
         case 4:
             if nn != reg.variable[x]:
-                reg.pc += 2
+                reg.pc.value += 2
         case 5:
             if reg.variable[x] == reg.variable[y]:
-                reg.pc += 2
+                reg.pc.value += 2
         case 6:
             reg.variable[x] = nn & 0xFF 
         case 7:
@@ -78,7 +78,7 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             elif n == 5:
                 if reg.variable[x] < reg.variable[y]:
                     reg.variable[0xF] = 0
-                reg.variable[x] = reg.variable[x] - reg.variable[y]
+                reg.variable[x] = (reg.variable[x] - reg.variable[y]) & 0xFF
             elif n == 6:
                 reg.variable[0xF] = reg.variable[x] & 0x1
                 reg.variable[x] >>= 1
@@ -92,13 +92,13 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
 
         case 9:
             if reg.variable[x] != reg.variable[y]:
-                reg.pc += 2
+                reg.pc.value += 2
         case 0xA:
             reg.I = nnn
         case 0xB:
-            reg.pc = nnn + reg.variable[0]  # CONFIGURABLE! nnn -> xnn
+            reg.pc.value = nnn + reg.variable[0]  # CONFIGURABLE! nnn -> xnn
             # l=(x << 8) | nn
-            # reg.pc = nnn + reg.variable[0]
+            # reg.pc.value = nnn + reg.variable[0]
 
         case 0xC:
             reg.variable[x] = randint(0, 255) & nn
@@ -123,17 +123,17 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
         case 0xE:
             if nn == 0xA1:
                 if keys[reg.variable[x]] == 0:
-                    reg.pc += 2
+                    reg.pc.value += 2
             elif nn == 0x9E:
                 if keys[reg.variable[x]] == 1:
-                    reg.pc += 2
+                    reg.pc.value += 2
         case 0xF:
             if nn == 0x07:
-                reg.variable[x] = reg.delay & 0xff
+                reg.variable[x] = reg.delay.value & 0xff
             elif nn == 0x15:
-                reg.delay = reg.variable[x]
+                reg.delay.value = reg.variable[x]
             elif nn == 0x18:
-                reg.sound = reg.variable[x]
+                reg.sound.value = reg.variable[x]
             elif nn == 0x1E:
                 reg.I += reg.variable[x]
                 if reg.I > 0xFFF:  # CONFIGURABLE!
@@ -149,7 +149,7 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
                         key_pressed = True
                         break
                 if not key_pressed:
-                    reg.pc -= 2
+                    reg.pc.value -= 2
             elif nn == 0x29:
                 last_nibble = reg.variable[x] & 0xF
                 reg.I = 0x050 + (last_nibble * 5)  # font for character
@@ -173,7 +173,7 @@ def cpu_cycle(ram, reg, screen, keys) -> None:
     instruction = fetch(ram, reg)
     first, x, y, n, nn, nnn = decode(instruction)
     execute(first, x, y, n, nn, nnn, reg, ram, screen, keys)
-    print(f"instruction ={hex(instruction)}, I ={reg.I}, sp = {reg.sp}, pc = {reg.pc} vx = {reg.variable}")
+    print(f"instruction ={hex(instruction)}, I ={reg.I}, sp = {reg.sp.value}, pc = {reg.pc.value} vx = {reg.variable}")
 
 
 def load(ch8, ram):
@@ -202,15 +202,15 @@ KEYS = {
     pygame.K_2: 0x2,
     pygame.K_3: 0x3,
     pygame.K_4: 0xC,
-    pygame.K_q: 0x4,
-    pygame.K_w: 0x5,
+    pygame.K_a: 0x4,
+    pygame.K_z: 0x5,
     pygame.K_e: 0x6,
     pygame.K_r: 0xD,
-    pygame.K_a: 0x7,
+    pygame.K_q: 0x7,
     pygame.K_s: 0x8,
     pygame.K_d: 0x9,
     pygame.K_f: 0xE,
-    pygame.K_z: 0xA,
+    pygame.K_w: 0xA,
     pygame.K_x: 0x0,
     pygame.K_c: 0xB,
     pygame.K_v: 0xF,
@@ -234,22 +234,22 @@ def key():
 
 def main() -> None:
     ram = Memory()
-    reg = registers()
+    reg = Registers()
     screen = [[0] * 64 for _ in range(32)]  # init screen array 64x32
 
     pygame.init()
-    pygame.mixer.init()
-    beep = pygame.mixer.Sound("beep.wav")
+   # pygame.mixer.init()
+    #beep = pygame.mixer.Sound("beep.wav")
 
     SCALE = 20
     window = pygame.display.set_mode((64 * SCALE, 32 * SCALE))
     pygame.display.set_caption("CHIP8 Emulator")
 
-    ch8 = "Hidden.ch8"
+    ch8 = "Pong.ch8"
     load(ch8, ram)
 
-    reg.sp = 0
-    reg.pc = 0x200
+    reg.sp.value = 0
+    reg.pc.value = 0x200
     
     timer_interval = 1 / 60
     last_timer_time = time.perf_counter()
@@ -266,12 +266,12 @@ def main() -> None:
         current_time = time.perf_counter()
         
         if current_time - last_timer_time >= timer_interval:
-            if reg.delay > 0:
-                reg.delay -= 1
-            if reg.sound > 0:
-                reg.sound -= 1
-                if not pygame.mixer.get_busy():
-                    beep.play()
+            if reg.delay.value > 0:
+                reg.delay.value -= 1
+            if reg.sound.value > 0:
+                reg.sound.value -= 1
+                #if not pygame.mixer.get_busy():
+                 #   beep.play()
             last_timer_time = current_time
 
         current_time = time.perf_counter()
