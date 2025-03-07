@@ -251,14 +251,14 @@ def main() -> None:
     prev_screen = [[0] * 64 for _ in range(32)]
 
     pygame.init()
-    pygame.mixer.init()
-    beep = pygame.mixer.Sound("beep.wav")
+    #pygame.mixer.init()
+    #beep = pygame.mixer.Sound("beep.wav")
 
     SCALE = 20
     window = pygame.display.set_mode((64 * SCALE, 32 * SCALE))
     pygame.display.set_caption("CHIP8 Emulator")
 
-    ch8 = "Hidden.ch8"
+    ch8 = "Kaleidoscope.ch8"
     load(ch8, ram)
 
     reg.sp.value = 0
@@ -268,6 +268,7 @@ def main() -> None:
     last_timer_time = time.perf_counter()
 
     while True:
+        
         last_time = time.perf_counter()
 
         keys = key()
@@ -283,8 +284,8 @@ def main() -> None:
                 reg.delay.value -= 1
             if reg.sound.value > 0:
                 reg.sound.value -= 1
-                if not pygame.mixer.get_busy():
-                    beep.play()
+                #if not pygame.mixer.get_busy():
+                    #beep.play()
             last_timer_time = current_time
 
         current_time = time.perf_counter()
