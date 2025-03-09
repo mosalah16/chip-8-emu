@@ -56,13 +56,9 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             if reg.variable[x] == reg.variable[y]:
                 reg.pc.value += 2
         case 6:
-            reg.variable[x] = nn & 0xFF
+            reg.variable[x] = nn
         case 7:
             result = reg.variable[x] + nn
-            if result > 255:
-                reg.variable[0xF] = 1
-            else:
-                reg.variable[0xF] = 0
             reg.variable[x] = result & 0xFF
         case 8:
             if n == 0:
@@ -74,24 +70,28 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             elif n == 3:
                 reg.variable[x] = (reg.variable[x] ^ reg.variable[y]) & 0xFF
             elif n == 4:
-                result = reg.variable[x] + reg.variable[y]
+                result = (reg.variable[x] + reg.variable[y])
                 if result > 255:
                     reg.variable[0xF] = 1
                 else:
                     reg.variable[0xF] = 0
-                reg.variable[x] = result & 0xFF
+                reg.variable[x] = result & 0xff
             elif n == 5:
                 if reg.variable[x] < reg.variable[y]:
                     reg.variable[0xF] = 0
+                else:
+                    reg.variable[0xF] = 1
                 reg.variable[x] = (reg.variable[x] - reg.variable[y]) & 0xFF
             elif n == 6:
+                reg.variable[x] = reg.variable[y] # CONFIGURABLE!
                 reg.variable[0xF] = reg.variable[x] & 0x1
                 reg.variable[x] >>= 1
             elif n == 7:
                 if reg.variable[x] > reg.variable[y]:
                     reg.variable[0xF] = 0
-                reg.variable[x] = reg.variable[y] - reg.variable[x]
+                reg.variable[x] = (reg.variable[y] - reg.variable[x]) & 0xff
             elif n == 0xE:
+                reg.variable[x] = reg.variable[y] # CONFIGURABLE!
                 reg.variable[0xF] = (reg.variable[x] & 0x80) >> 7
                 reg.variable[x] = (reg.variable[x] << 1) & 0xFF
 
@@ -101,9 +101,9 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
         case 0xA:
             reg.I.value = nnn
         case 0xB:
-            reg.pc.value = nnn + reg.variable[0]  # CONFIGURABLE! nnn -> xnn
-            # la=(x << 8) | nn
-            # reg.pc.value = la + reg.variable[0]
+            #reg.pc.value = nnn + reg.variable[0]  # CONFIGURABLE! nnn -> xnn
+            
+            reg.pc.value = (x << 8) | nn + reg.variable[x]
 
         case 0xC:
             reg.variable[x] = randint(0, 255) & nn
@@ -126,12 +126,13 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
 
                         screen[screen_row][screen_col] ^= 1  # toggle the screen pixel
         case 0xE:
-            if nn == 0xA1:
-                if keys[reg.variable[x]] == 0:
-                    reg.pc.value += 2
-            elif nn == 0x9E:
+            if nn == 0x9E:
                 if keys[reg.variable[x]] == 1:
                     reg.pc.value += 2
+            elif nn == 0xA1:
+                if keys[reg.variable[x]] == 0:
+                    reg.pc.value += 2
+            
         case 0xF:
             if nn == 0x07:
                 reg.variable[x] = reg.delay.value & 0xFF
@@ -141,10 +142,10 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
                 reg.sound.value = reg.variable[x]
             elif nn == 0x1E:
                 reg.I.value += reg.variable[x]
-                if reg.I.value > 0xFFF:  # CONFIGURABLE!
-                    reg.variable[0xF] = 1  # chip-8 for amiga uses this
-                else:  # spacefight 2091 relies on this
-                    reg.variable[0xF] = 0  #
+                #if reg.I.value > 0xFFF:  # CONFIGURABLE!
+                #    reg.variable[0xF] = 1  # chip-8 for amiga uses this
+                #else:  # spacefight 2091 relies on this
+                #    reg.variable[0xF] = 0  #
             elif nn == 0x0A:
                 key_pressed = False
                 for i in range(16):
@@ -165,12 +166,12 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             elif n == 0x55:
                 for i in range(x + 1):
                     ram[reg.I.value + i] = reg.variable[i]
-                # reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chop
+                reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chip
 
             elif nn == 0x65:
                 for i in range(x + 1):
                     reg.variable[i] = ram[reg.I.value + i]
-                # reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chop
+                reg.I.value += x + 1  # CONFIGURABLE! uncomment for original chip
 
 
 def cpu_cycle(ram, reg, screen, keys) -> None:
@@ -291,7 +292,7 @@ def start_emulation(rom_path, scale, cpu_hz, game) -> None:
         if elapsed_time < cpu_interval:
             sleep = cpu_interval - elapsed_time
             if sleep > 0:
-                time.sleep(sleep * 0.98)
+                time.sleep(sleep * 0.99)
 
         while elapsed_time < cpu_interval:
             current_time = time.perf_counter()
@@ -308,7 +309,7 @@ def change_interval(value, cpu_hz):
 
 def main():
     cpu_hz = [700]
-    rom_path = ["roms/tetris.ch8"]
+    rom_path = ["roms/c8_test.c8"]
     scale = [10]
 
     pygame.init()

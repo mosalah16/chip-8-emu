@@ -12,11 +12,14 @@ class Registers:
     
 
     def push(self, value_: int) -> None:
-        self.sp.value += 1
+        if self.sp.value >= len(self.stack):
+            raise IndexError("Stack overflow")
         self.stack[self.sp.value] = value_
+        self.sp.value += 1
         
     
     def pop(self) -> int:
-        valeur = self.stack[self.sp.value]
+        if self.sp.value == 0:
+            raise IndexError("Stack underflow")
         self.sp.value -= 1
-        return valeur
+        return self.stack[self.sp.value]
