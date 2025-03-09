@@ -3,10 +3,7 @@ from registers import Registers
 from memory import Memory
 from random import randint
 import pygame
-
-INTERVAL = 1 / 700
-
-current_time = 0
+import pygame_menu
 
 
 def fetch(ram: int, reg: int) -> int:
@@ -59,7 +56,7 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             if reg.variable[x] == reg.variable[y]:
                 reg.pc.value += 2
         case 6:
-            reg.variable[x] = nn & 0xFF 
+            reg.variable[x] = nn & 0xFF
         case 7:
             result = reg.variable[x] + nn
             if result > 255:
@@ -69,13 +66,13 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
             reg.variable[x] = result & 0xFF
         case 8:
             if n == 0:
-                reg.variable[x] = reg.variable[y] & 0xFF 
+                reg.variable[x] = reg.variable[y] & 0xFF
             elif n == 1:
-                reg.variable[x] = (reg.variable[x] | reg.variable[y]) & 0xFF 
+                reg.variable[x] = (reg.variable[x] | reg.variable[y]) & 0xFF
             elif n == 2:
-                reg.variable[x] = (reg.variable[x] & reg.variable[y]) & 0xFF 
+                reg.variable[x] = (reg.variable[x] & reg.variable[y]) & 0xFF
             elif n == 3:
-                reg.variable[x] = (reg.variable[x] ^ reg.variable[y]) & 0xFF 
+                reg.variable[x] = (reg.variable[x] ^ reg.variable[y]) & 0xFF
             elif n == 4:
                 result = reg.variable[x] + reg.variable[y]
                 if result > 255:
@@ -137,7 +134,7 @@ def execute(first, x, y, n, nn, nnn: int, reg, ram, screen, keys):
                     reg.pc.value += 2
         case 0xF:
             if nn == 0x07:
-                reg.variable[x] = reg.delay.value & 0xff
+                reg.variable[x] = reg.delay.value & 0xFF
             elif nn == 0x15:
                 reg.delay.value = reg.variable[x]
             elif nn == 0x18:
@@ -180,7 +177,9 @@ def cpu_cycle(ram, reg, screen, keys) -> None:
     instruction = fetch(ram, reg)
     first, x, y, n, nn, nnn = decode(instruction)
     execute(first, x, y, n, nn, nnn, reg, ram, screen, keys)
-    print(f"instruction ={hex(instruction)}, I ={reg.I.value}, sp = {reg.sp.value}, pc = {reg.pc.value}")
+    print(
+        f"instruction ={hex(instruction)}, I ={reg.I.value}, sp = {reg.sp.value}, pc = {reg.pc.value}"
+    )
 
 
 def load(ch8, ram):
@@ -191,12 +190,11 @@ def load(ch8, ram):
         ram[0x200 + i] = byte
 
 
-def render_screen(screen, window, SCALE, prev_screen):
-
+def render_screen(screen, window, scale, prev_screen):
     if screen == prev_screen:
         return  # skip if screen didnt change
     prev_screen[:] = [row[:] for row in screen]
-    
+
     window.fill((0, 0, 0))
     for row in range(32):
         for col in range(64):
@@ -204,7 +202,7 @@ def render_screen(screen, window, SCALE, prev_screen):
                 pygame.draw.rect(
                     window,
                     (255, 255, 255),
-                    (col * SCALE, row * SCALE, 1 * SCALE, 1 * SCALE),
+                    (col * scale, row * scale, 1 * scale, 1 * scale),
                 )
     pygame.display.flip()
 
@@ -244,62 +242,127 @@ def key():
     return keys
 
 
-def main() -> None:
+def start_emulation(rom_path, scale, cpu_hz) -> None:
     ram = Memory()
     reg = Registers()
     screen = [[0] * 64 for _ in range(32)]  # init screen array 64x32
     prev_screen = [[0] * 64 for _ in range(32)]
 
     pygame.init()
-    #pygame.mixer.init()
-    #beep = pygame.mixer.Sound("beep.wav")
+    # pygame.mixer.init()
+    # beep = pygame.mixer.Sound("beep.wav")
 
-    SCALE = 20
-    window = pygame.display.set_mode((64 * SCALE, 32 * SCALE))
+    window = pygame.display.set_mode((64 * scale, 32 * scale))
     pygame.display.set_caption("CHIP8 Emulator")
 
-    ch8 = "Kaleidoscope.ch8"
-    load(ch8, ram)
+    load(rom_path, ram)
 
     reg.sp.value = 0
     reg.pc.value = 0x200
-    
+
+    cpu_interval = 1 / cpu_hz
     timer_interval = 1 / 60
     last_timer_time = time.perf_counter()
 
-    while True:
-        
+    running = True
+
+    while running:
         last_time = time.perf_counter()
 
         keys = key()
 
         cpu_cycle(ram, reg, screen, keys)
 
-        render_screen(screen, window, SCALE, prev_screen)
+        render_screen(screen, window, scale, prev_screen)
 
         current_time = time.perf_counter()
-        
+
         if current_time - last_timer_time >= timer_interval:
             if reg.delay.value > 0:
                 reg.delay.value -= 1
             if reg.sound.value > 0:
                 reg.sound.value -= 1
-                #if not pygame.mixer.get_busy():
-                    #beep.play()
+                # if not pygame.mixer.get_busy():
+                # beep.play()
             last_timer_time = current_time
 
-        current_time = time.perf_counter()
         elapsed_time = current_time - last_time
 
         # reduce cpu stress while still having the accuracy of perf_counter
-        if elapsed_time < INTERVAL:
-            sleep = INTERVAL - elapsed_time
+        if elapsed_time < cpu_interval:
+            sleep = cpu_interval - elapsed_time
             if sleep > 0:
                 time.sleep(sleep * 0.98)
 
-        while elapsed_time < INTERVAL:
+        while elapsed_time < cpu_interval:
             current_time = time.perf_counter()
             elapsed_time = current_time - last_time
+
+
+def change_rom_path(value, rom_path):
+    rom_path[0] = value
+
+
+def change_interval(value, cpu_hz):
+    cpu_hz[0] = value
+
+
+def main():
+    cpu_hz = [700]
+    rom_path = ["roms/tetris.ch8"]
+    scale = [10]
+
+    pygame.init()
+    game = pygame.display.set_mode((64 * scale[0], 32 * scale[0]))
+
+    menu = pygame_menu.Menu(
+        "CHIP-8 Emulator",
+        64 * scale[0],
+        32 * scale[0],
+        theme=pygame_menu.themes.THEME_DEFAULT,
+    )
+
+    menu.add.selector(
+        "CPU Frequency (Hz): ",
+        [
+            ("700 Hz", 700),
+            ("900 Hz", 900),
+            ("100 Hz", 100),
+            ("300 Hz", 300),
+            ("500 Hz", 500),
+        ],
+        onchange=lambda _, value: cpu_hz.__setitem__(0, value),
+    )
+    menu.add.text_input(
+        "ROM Path: ",
+        default=rom_path[0],
+        onchange=lambda value: rom_path.__setitem__(0, value),
+    )
+
+    menu.add.selector(
+        "Window scale: ",
+        [("5", 5), ("10", 10), ("15", 15), ("20", 20), ("25", 25), ("30", 29)],
+        onchange=lambda _, value: scale.__setitem__(0, value),
+    )
+
+    menu.add.button(
+        "Start Emulator", lambda: start_emulation(rom_path[0], scale[0], cpu_hz[0])
+    )
+
+    menu.add.button("Quit", pygame_menu.events.EXIT)
+
+    while True:
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+        if menu.is_enabled():
+            menu.update(events)
+            menu.draw(game)
+
+        pygame.display.flip()
 
 
 if __name__ == "__main__":
