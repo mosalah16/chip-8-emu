@@ -242,7 +242,7 @@ def key():
     return keys
 
 
-def start_emulation(rom_path, scale, cpu_hz) -> None:
+def start_emulation(rom_path, scale, cpu_hz, game) -> None:
     ram = Memory()
     reg = Registers()
     screen = [[0] * 64 for _ in range(32)]  # init screen array 64x32
@@ -252,7 +252,6 @@ def start_emulation(rom_path, scale, cpu_hz) -> None:
     # pygame.mixer.init()
     # beep = pygame.mixer.Sound("beep.wav")
 
-    window = pygame.display.set_mode((64 * scale, 32 * scale))
     pygame.display.set_caption("CHIP8 Emulator")
 
     load(rom_path, ram)
@@ -273,7 +272,7 @@ def start_emulation(rom_path, scale, cpu_hz) -> None:
 
         cpu_cycle(ram, reg, screen, keys)
 
-        render_screen(screen, window, scale, prev_screen)
+        render_screen(screen, game, scale, prev_screen)
 
         current_time = time.perf_counter()
 
@@ -341,12 +340,12 @@ def main():
 
     menu.add.selector(
         "Window scale: ",
-        [("5", 5), ("10", 10), ("15", 15), ("20", 20), ("25", 25), ("30", 29)],
+        [("10", 10), ("15", 15), ("20", 20), ("25", 25), ("30", 29), ("5", 5)],
         onchange=lambda _, value: scale.__setitem__(0, value),
     )
 
     menu.add.button(
-        "Start Emulator", lambda: start_emulation(rom_path[0], scale[0], cpu_hz[0])
+        "Start", lambda: start_emulation(rom_path[0], scale[0], cpu_hz[0], game)
     )
 
     menu.add.button("Quit", pygame_menu.events.EXIT)
